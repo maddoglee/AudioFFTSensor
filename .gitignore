@@ -30,3 +30,19 @@
 *.exe
 *.out
 *.app
+
+# Compiled source
+*.o
+*.pyc
+*.class
+
+# Arduino build files
+*.bin
+*.elf
+*.hex
+
+# macOS Finder files
+.DS_Store
+
+# Secret configuration files
+secrets.h
