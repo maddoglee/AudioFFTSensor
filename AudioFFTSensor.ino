@@ -5,7 +5,7 @@
 #include <ArduinoMqttClient.h>
 #include "secrets.h"
 //#include "mqtt_discovery.h"
-#include <PubSubClient.h>
+//#include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <WebServer.h>  //Used for HTTP callback to enable/disable discovery
 
@@ -358,6 +358,10 @@ void loop(void)
           mn = 9999;
           mx = 0;
           ts = millis();
+
+          mqttClient.beginMessage("stat/mydevice/ipaddress", true);
+          mqttClient.print(WiFi.localIP());
+          mqttClient.endMessage();  
       }
       return;
     }
@@ -395,7 +399,7 @@ void loop(void)
     //Serial.println(peak);
     
     // detecting frequencies around 2550Hz, 1628Hz (Washine Machine)
-    if (detectFrequency(&washingMachine, 7, peak, 116, 175, true))
+    if (detectFrequency(&washingMachine, 5, peak, 175, 116, true))
     {
         Serial.println("Detected Washing Machine");
         sendAlarm(0, "home/alarm/washingmachine", 10000);
@@ -466,10 +470,11 @@ void createDiscoveryUniqueID() {
 void haDiscovery() {
   char topic[128];
   if (auto_discovery) {
-    char buffer1[1024];
-    char buffer2[1024];
-    char buffer3[1024];
-    char buffer4[1024];
+    char buffer1[512];
+    char buffer2[512];
+    char buffer3[512];
+    char buffer4[512];
+    char buffer5[512];
     char uid[128];
     DynamicJsonDocument doc(1024);
     doc.clear();
@@ -540,9 +545,9 @@ void haDiscovery() {
     doc["stat_t"] = "home/alarm/washingmachine";
 	  doc["pl_on"] = "ON";
 	  doc["pl_off"] = "OFF";
-    JsonObject deviceS = doc.createNestedObject("device");
-    deviceS["ids"] = "mymqttdevice01";
-    deviceS["name"] = "Audio Alarm Sensor";
+    JsonObject deviceL = doc.createNestedObject("device");
+    deviceL["ids"] = "mymqttdevice01";
+    deviceL["name"] = "Audio Alarm Sensor";
     serializeJson(doc, buffer2);
     //Publish discovery topic and payload (with retained flag)
     Serial.println(topic), buffer2;  
@@ -550,36 +555,61 @@ void haDiscovery() {
     mqttClient.print(buffer2);
     mqttClient.endMessage();  
     
-    //Temperature Sensor
-    Serial.println("Adding Temp Sensor...");
+    //Fire Alarm Sensor
+    Serial.println("Adding Fire Alarm sensor...");
     //Create unique Topic based on devUniqueID
-    strcpy(topic, "homeassistant/sensor/");
+    strcpy(topic, "homeassistant/binary_sensor/");
     strcat(topic, devUniqueID);
-    strcat(topic, "T/config");
+    strcat(topic, "M/config");
     //Create unique_id based on decUniqueID
     strcpy(uid, devUniqueID);
-    strcat(uid, "T");
+    strcat(uid, "M");
     //Create JSON payload per HA documentation
     doc.clear();
-    doc["name"] = "Temperature";
-    doc["obj_id"] = "mqtt_temperature";
-    doc["dev_cla"] = "temperature";
+    doc["name"] = "Fire Alarm Detected";
+    doc["obj_id"] = "mqtt_fire_sound";
+    doc["dev_cla"] = "sound";
     doc["uniq_id"] = uid;
-    doc["stat_t"] = "stat/mydevice/temperature";
-    doc["unit_of_meas"] = "°F";
-    JsonObject deviceT = doc.createNestedObject("device");
-    deviceT["ids"] = "mymqttdevice01";
-    deviceT["name"] = "Audio Alarm Sensor";
+    doc["stat_t"] = "home/alarm/fire";
+	  doc["pl_on"] = "ON";
+	  doc["pl_off"] = "OFF";
+    JsonObject deviceM = doc.createNestedObject("device");
+    deviceM["ids"] = "mymqttdevice01";
+    deviceM["name"] = "Audio Alarm Sensor";
     serializeJson(doc, buffer3);
     //Publish discovery topic and payload (with retained flag)
-    //client.publish(topic, buffer3, true);
+    Serial.println(topic), buffer3;  
     mqttClient.beginMessage(topic, true);
-    //mqttClient.print(topic);
     mqttClient.print(buffer3);
-    //mqttClient.print(true);
-    mqttClient.endMessage();
+    mqttClient.endMessage();  
     
-    
+    //Dishwasher Machine Sensor
+    Serial.println("Adding Dishwasher sensor...");
+    //Create unique Topic based on devUniqueID
+    strcpy(topic, "homeassistant/binary_sensor/");
+    strcat(topic, devUniqueID);
+    strcat(topic, "N/config");
+    //Create unique_id based on decUniqueID
+    strcpy(uid, devUniqueID);
+    strcat(uid, "N");
+    //Create JSON payload per HA documentation
+    doc.clear();
+    doc["name"] = "Dishwasher Tone Detected";
+    doc["obj_id"] = "mqtt_dish_sound";
+    doc["dev_cla"] = "sound";
+    doc["uniq_id"] = uid;
+    doc["stat_t"] = "home/alarm/dishwasher";
+	  doc["pl_on"] = "ON";
+	  doc["pl_off"] = "OFF";
+    JsonObject deviceN = doc.createNestedObject("device");
+    deviceN["ids"] = "mymqttdevice01";
+    deviceN["name"] = "Audio Alarm Sensor";
+    serializeJson(doc, buffer4);
+    //Publish discovery topic and payload (with retained flag)
+    Serial.println(topic), buffer4;  
+    mqttClient.beginMessage(topic, true);
+    mqttClient.print(buffer4);
+    mqttClient.endMessage();  
     
     //IP Address Diagnostic
     Serial.println("Adding IP Diagnostic Sensor...");
@@ -600,12 +630,12 @@ void haDiscovery() {
     deviceI = doc.createNestedObject("device");
     deviceI["ids"] = "mymqttdevice01";
     deviceI["name"] = "Audio Alarm Sensor";
-    serializeJson(doc, buffer4);
+    serializeJson(doc, buffer5);
     //Publish discovery topic and payload (with retained flag)
     //client.publish(topic, buffer4, true);
     mqttClient.beginMessage(topic, true);
     //mqttClient.print(topic);
-    mqttClient.print(buffer4);
+    mqttClient.print(buffer5);
     //mqttClient.print(true);
     mqttClient.endMessage();
     Serial.println("All devices added!");
@@ -617,7 +647,7 @@ void haDiscovery() {
     //This will immediately remove/delete the device/entities from HA
     Serial.println("Removing discovered devices...");
 
-    //Lux Sensor
+    //Washing Machine Sensor
     strcpy(topic, "homeassistant/binary_sensor/");
     strcat(topic, devUniqueID);
     strcat(topic, "L/config");
@@ -627,10 +657,20 @@ void haDiscovery() {
     mqttClient.print("");
     mqttClient.endMessage();
 
-    //Temperature Sensor
-    strcpy(topic, "homeassistant/sensor/");
+    //fire alarm Sensor
+    strcpy(topic, "homeassistant/binary_sensor/");
     strcat(topic, devUniqueID);
-    strcat(topic, "T/config");
+    strcat(topic, "M/config");
+    //Client.publish(topic, "");
+    mqttClient.beginMessage(topic);
+    //mqttClient.print(topic);
+    mqttClient.print("");
+    mqttClient.endMessage();
+
+    //Dishwasher Sensor
+    strcpy(topic, "homeassistant/binary_sensor/");
+    strcat(topic, devUniqueID);
+    strcat(topic, "N/config");
     //Client.publish(topic, "");
     mqttClient.beginMessage(topic);
     //mqttClient.print(topic);
@@ -647,7 +687,7 @@ void haDiscovery() {
     mqttClient.print("");
     mqttClient.endMessage();
 
-    //Light (switch)
+    //Alarm Switch (switch)
     strcpy(topic, "homeassistant/switch/");
     strcat(topic, devUniqueID);
     strcat(topic, "S/config");
